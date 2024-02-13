@@ -1,0 +1,89 @@
+
+
+- name: "Base Config"
+  hosts: debian
+  roles:
+    - debian
+  tags:
+    - debian
+    - base
+
+# - name: Debug TF Tags
+#   hosts: consul_server
+#   tasks:
+#     - debug:
+#         var: ansible_facts
+
+- name: "Setup Hashicorp Software Repositories"
+  hosts: 
+    - consul_server
+    - consul_client
+    - nomad_server
+    - nomad_client
+    - vault_server
+  roles:
+    - hashi-repos
+
+- name: "Setup Consul Server"
+  hosts:
+    - consul_server
+  vars:
+    mode: server
+    consul_leader_host: "{{ groups['consul_server'][0] }}"
+    num_servers: "{{ groups['consul_server'] | length }}"
+    num_clients: "{{ groups['consul_client'] | length }}"
+
+
+  roles:
+    - hashi/consul
+
+- name: "Setup Consul Client"
+  hosts:
+    - consul_client
+  vars:
+    mode: client
+    consul_leader_host: "{{ groups['consul_server'][0] }}"
+  roles:
+    - hashi/consul
+
+- name: "Setup Nomad Server"
+  hosts:
+    - nomad_server
+  vars:
+    mode: server
+    consul_leader_host: "{{ groups['consul_server'][0] }}"
+    nomad_leader_host: "{{ groups['nomad_server'][0] }}"
+    num_servers: "{{ groups['nomad_server'] | length }}"
+  roles:
+    - hashi/nomad
+  tags:
+    - nomad
+    - nomad-acl
+
+- name: "Setup Nomad Client"
+  hosts:
+    - nomad_client
+  vars:
+    mode: client
+    consul_leader_host: "{{ groups['consul_server'][0] }}"
+    nomad_leader_host: "{{ groups['nomad_server'][0] }}"
+    num_servers: "{{ groups['nomad_server'] | length }}"
+
+  roles:
+    - hashi/nomad
+  tags:
+    - nomad
+    - nomad-acl
+
+- name: "Setup Nomad"
+  hosts:
+    - "{{groups['nomad_server'][0]}}"
+  vars:
+    ceph_cli_host: proxmox
+    consul_leader_host: "{{ groups['consul_server'][0] }}"
+    nomad_leader_host: "{{ groups['nomad_server'][0] }}"
+  roles:
+    - hashi/nomad-setup
+  tags:
+    - nomad
+    - nomad-data

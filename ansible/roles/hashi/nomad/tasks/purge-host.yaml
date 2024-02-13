@@ -1,0 +1,32 @@
+- name: Stop nomad
+  become: true
+  systemd:
+    service: nomad
+    state: stopped
+    enabled: no
+- name: Stop Docker containers
+  failed_when: false
+  shell: docker stop $(docker ps -a -q)
+  
+- name: Clear docker
+  when: mode == "client"
+  become: true
+  command: docker system prune -f
+
+- name: Stop docker
+  become: true
+  systemd:
+    service: docker
+    state: stopped
+    enabled: no
+
+- name: Unmount CSIs
+  failed_when: false
+  become: true
+  shell: cat /proc/mounts  | grep "csi" | awk ' { print $2 } ' | xargs timeout 10s umount
+
+- name: Reboot
+  become: true
+  throttle: 2
+  reboot:
+    msg: Ansible

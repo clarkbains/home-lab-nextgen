@@ -1,0 +1,39 @@
+- name: Update docker
+  become: true
+  apt:
+    update_cache: true
+    name: "docker.io"
+    state: latest
+- name: Make CNI Folder
+  become: true
+  file:
+    path: /opt/cni/bin
+    state: directory
+
+- name: Download CNI Plugins
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/containernetworking/plugins/releases/download/v1.0.0/cni-plugins-linux-amd64-v1.0.0.tgz
+    dest: /opt/cni/bin
+    remote_src: yes
+- name: Copy systcls
+  become: true
+  register: systcl
+  copy:
+    src: 10-bridge.conf
+    dest: /etc/sysctl.d/10-bridge.conf
+    owner: root
+    group: root
+
+- name: Reload systcl
+  when: systcl.changed
+  become: true
+  changed_when: systcl.changed
+  command: service procps force-reload
+
+- name: Start Docker
+  become: true
+  systemd:
+    service: docker
+    state: started
+    enabled: yes

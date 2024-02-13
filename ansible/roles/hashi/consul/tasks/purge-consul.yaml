@@ -1,0 +1,33 @@
+- name: Stop Consul
+  become: true
+  systemd:
+    service: consul
+    state: stopped
+    enabled: no
+
+- name: Delete files
+  become: true
+  shell: rm -rf /opt/consul/*
+
+- name: Create Config Dir
+  become: true
+  file:
+    path: "/opt/consul"
+    state: directory
+    owner: "consul"
+    group: "consul"
+
+
+- name: Check If Key Generated
+  stat:
+    path: /opt/consul/consul-enc
+  register: consul_file
+  run_once: true
+  delegate_to: "{{ consul_leader_host }}"
+
+- name: Generate Key
+  shell: consul keygen | tee /opt/consul/consul-enc
+  run_once: true
+  become: true
+  delegate_to: "{{ consul_leader_host }}"
+  when: not consul_file.stat.exists

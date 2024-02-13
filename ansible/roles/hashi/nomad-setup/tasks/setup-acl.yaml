@@ -1,0 +1,43 @@
+- name: Get Key
+  changed_when: false
+  register: nomad_token
+  delegate_to: "{{ nomad_leader_host }}"
+  run_once: true
+  become: true
+  command: jq -r '.SecretID' /opt/nomad/bootstrap-token.json
+
+# - name: Get Consul Key
+#   changed_when: false
+#   register: consul_token
+#   delegate_to: "{{ consul_leader_host }}"
+#   run_once: true
+#   become: true
+#   command: jq -r '.SecretID' /opt/consul/bootstrap-token.json
+
+- name: Show Nomad Key
+  debug: var=nomad_token.stdout
+
+
+- name: Setup Nomad and Consul
+  connection: local
+  run_once: true
+  register: tokens
+  community.general.terraform:
+    project_path: '{{ role_path }}/terraform'
+    state: present
+    complex_vars: true
+    variables:
+  #    consul_token: "{{ consul_token.stdout }}"
+      nomad_token: "{{ nomad_token.stdout }}"
+      consul_dc: homelab
+      consul_http: "{{ hostvars[consul_leader_host]['ansible_host'] }}:8500"
+      nomad_http: "http://{{ hostvars[nomad_leader_host]['ansible_host'] }}:4646"
+      ceph_cli_host: proxmox
+      ceph_cli_user: root
+      ceph_cli_key: ~/.ssh/id_ansible_ed25519
+    force_init: true
+
+- name: Debug TF Outputs
+  run_once: true
+  debug: var=tokens
+

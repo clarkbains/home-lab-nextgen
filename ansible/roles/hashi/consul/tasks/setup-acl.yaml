@@ -1,0 +1,57 @@
+- name: Get Key
+  changed_when: false
+  command: jq -r '.SecretID' /opt/consul/bootstrap-token.json
+  register: consul_token
+  delegate_to: "{{ consul_leader_host }}"
+  run_once: true
+  become: true
+
+- name: Show Root tokens
+  run_once: true
+  debug: var=consul_token.stdout
+
+- name: Complex variables example
+  connection: local
+  run_once: true
+
+  register: tokens
+  community.general.terraform:
+    project_path: '{{ role_path }}/terraform'
+    state: present
+    complex_vars: true
+    variables:
+      consul_token: "{{ consul_token.stdout }}"
+      consul_dc: homelab
+      consul_http: "{{ hostvars[consul_leader_host]['ansible_host'] }}:8500"
+    force_init: true
+
+- name: Debug TF Outputs
+  when: tokens.failed
+  run_once: true
+  debug: var=tokens
+
+- name: Show Created tokens
+  run_once: true
+  when: not tokens.failed
+  debug: var=tokens.outputs
+
+# - name: Set Agent Tokens
+#   command: "consul acl set-agent-token -token {{ consul_token.stdout }} agent {{ tokens.outputs.agent_token.value }}"
+
+# - name: Set DNS Tokens
+#   command: "consul acl set-agent-token -token {{ consul_token.stdout }} dns {{ tokens.outputs.dns_token.value }}"
+
+
+- name: Write Nomad Server Token
+  become: true
+  lineinfile:
+    create: true
+    line: "{{ tokens.outputs.nomad_server_token.value }}"
+    path: "/opt/consul/nomad-server.token"
+
+- name: Write Nomad Client Token
+  become: true
+  lineinfile:
+    create: true
+    line: "{{ tokens.outputs.nomad_client_token.value }}"
+    path: "/opt/consul/nomad-client.token"

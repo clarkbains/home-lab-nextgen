@@ -1,0 +1,11 @@
+- name: Get Key
+  changed_when: false
+  register: nomad_token
+  delegate_to: "{{ nomad_leader_host }}"
+  run_once: true
+  become: true
+  command: jq -r '.SecretID' /opt/nomad/bootstrap-token.json
+
+- name: Show Root Nomad tokens
+  run_once: true
+  debug: var=nomad_token.stdout

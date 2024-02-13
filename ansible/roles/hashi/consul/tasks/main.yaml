@@ -1,0 +1,34 @@
+- name: Install Consul
+  include_tasks: ./install-consul.yaml
+
+- name: Bootstrap Consul Config Folder
+  include_tasks: ./purge-consul.yaml
+
+# - name: Bootstrap cluster
+#   include_tasks: ./setup-cluster.yaml
+
+- name: Start Services Run
+  include_tasks: ./setup-services.yaml
+
+
+# - name: Setup ACLs
+#   #when: mode == "server"
+#   include_tasks: ./setup-acl.yaml
+
+  
+# - name: Install Software
+#   become: true
+#   with_items: 
+#     - sudo
+#     - vim
+#   apt:
+#     name: "{{ item }}"
+#     state: latest
+
+# - name: Install Custom Software
+#   become: true
+#   when: debian_extra_packages is defined
+#   with_items: " {{ debian_extra_packages }}"
+#   apt:
+#     name: "{{ item }}"
+#     state: latest

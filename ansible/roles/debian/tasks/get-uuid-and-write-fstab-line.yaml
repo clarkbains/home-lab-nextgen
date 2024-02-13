@@ -1,0 +1,32 @@
+
+- name: Get UUID
+  become: true
+  changed_when: true
+  command: "blkid {{ item.stdout }} -s UUID -o value"
+  register: uuid
+
+- name: Set facts for device mountpoints
+  become: true
+  lineinfile:
+    create: true
+    line: "{{ hostvars[inventory_hostname].cfg.diskmnt[item.item.key] | split(' ') | first | trim}}"
+    path: "/etc/{{ item.item.key }}.mountpoint"
+
+- name: Get Mountpoint
+  slurp: 
+    src: "/etc/{{ item.item.key }}.mountpoint"
+  register: mountpoint
+
+- name: Create mountpoint
+  become: true
+  file:
+    path: "{{ mountpoint.content | b64decode | trim }}"
+    state: directory
+
+- name: Write File
+  become: true
+  ignore_errors: true 
+  lineinfile:
+    create: true
+    line: "UUID={{ uuid.stdout }} {{ hostvars[inventory_hostname].cfg.diskmnt[item.item.key] }}"
+    path: "/etc/fstab.d/01-{{ item.item.key }}.dynamic"

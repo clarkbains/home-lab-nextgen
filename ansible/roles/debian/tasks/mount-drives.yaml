@@ -1,0 +1,104 @@
+- name: Create fstab confd folder
+  become: true
+  file:
+    path: /etc/fstab.d/
+    state: directory
+    owner: root
+    mode: "700"
+
+- name: Check for fstab with root
+  register: fstab_static
+  become: true
+  stat:
+    path: /etc/fstab.d/00-fstab.static
+
+- name: Copy fstab with root to new plot
+  become: true
+  when: not fstab_static.stat.exists
+  copy:
+    remote_src: yes
+    src: /etc/fstab
+    dest: /etc/fstab.d/00-fstab.static
+
+- name: Remove Ansible Base 
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/fstab.d/00-fstab.static
+    state: absent
+    regexp: "/boot/efi"
+
+- name: Capture old mounts to delete
+  become: true
+  find:
+    paths: /etc/fstab.d
+    file_type: file
+    excludes: 
+      - "00-fstab.static"
+  register: found_files
+
+- name: Delete files
+  become: true
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ found_files['files'] }}"
+
+- name: Get Block ID for each drive
+  with_dict: "{{ hostvars[inventory_hostname].diskconfig }}"
+  when: item.key != "root"
+  register: devId
+  script: 
+    cmd: "blkid.sh {{ item.value.type }} {{ item.value.slot }}"
+
+
+- name: Get Root
+  register: root_dev
+  command: findmnt / -o SOURCE -n
+
+- name: Grow Root
+  become: true
+  failed_when: false
+  shell: "growpart $(echo {{ root_dev.stdout }} | sed -r 's/[[:digit:]]/ \\0/' )"
+
+- name: Grow Root disks
+  become: true
+  community.general.filesystem:
+    fstype: "ext4"
+    dev: "{{ root_dev.stdout }}"
+    resizefs: true
+
+- name: Format Disks
+  with_items: "{{ devId.results }}"
+  when: item.stdout is defined and item.stdout != "" and "diskfmt" in hostvars[inventory_hostname].cfg and item.item.key in hostvars[inventory_hostname].cfg.diskfmt
+  become: true
+  community.general.filesystem:
+    fstype: "{{ hostvars[inventory_hostname].cfg.diskfmt[item.item.key] }}"
+    dev: "{{ item.stdout }}"
+    resizefs: true
+
+- name: Debug
+  with_items: "{{ devId.results }}"
+  when: item.stdout is defined and item.stdout != "" and "diskmnt" in hostvars[inventory_hostname].cfg and item.item.key in hostvars[inventory_hostname].cfg.diskmnt
+  debug: var=hostvars[inventory_hostname].cfg
+
+- name: Add mounts for disks
+  with_items: "{{ devId.results }}"
+  when: item.stdout is defined and item.stdout != "" and "diskmnt" in hostvars[inventory_hostname].cfg and item.item.key in hostvars[inventory_hostname].cfg.diskmnt
+  include_tasks: ./get-uuid-and-write-fstab-line.yaml
+
+- name: Assemble into fstab
+  register: fstab
+  become: true
+  assemble:
+    src: /etc/fstab.d/
+    dest: /etc/fstab
+- name: Systemctl Reload
+  when: fstab.changed
+  become: true
+  systemd:
+    daemon_reload: true
+    
+- name: mount all
+  when: fstab.changed
+  become: true
+  command: mount -a

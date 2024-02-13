@@ -1,0 +1,19 @@
+- name: Update Software
+  become: true
+  apt:
+    update_cache: true
+    name: "*"
+    state: latest
+
+- name: Install Software for role
+  become: true
+  with_items: 
+    - cloud-utils
+  apt:
+    name: "{{item}}"
+    state: latest
+
+- name: Upgrade Software
+  become: true
+  apt:
+    upgrade: safe

@@ -1,0 +1,5 @@
+- name: Disable Arm Boot
+  become: true
+  systemd:
+    service: arm-boot
+    enabled: no

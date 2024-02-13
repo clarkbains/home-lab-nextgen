@@ -1,0 +1,117 @@
+
+- name: Get Key
+  slurp: 
+    src: /opt/consul/consul-enc
+  run_once: true
+  register: consul_key_b64
+  delegate_to: "{{ consul_leader_host }}"
+  become: true
+
+- name: Add Resolved config folder
+  become: true
+  file:
+    state: directory
+    owner: root
+    group: root
+    mode: "755"
+    path: /etc/systemd/resolved.conf.d
+
+
+- name: Copy Systemd Resolve
+  become: true
+  template: 
+    src: dns/consul.conf
+    dest: /etc/systemd/resolved.conf.d/consul.conf
+    mode: "644"
+
+- name: Remove consul config folder
+  become: true
+  file: 
+    path: /etc/consul.d
+    state: absent
+
+- name: Make consul config folder
+  become: true
+  file: 
+    path: /etc/consul.d
+    state: directory
+    owner: consul
+    group: consul
+    mode: "700"
+
+- name: Install Config
+  become: true
+  template:
+    src: consul.hcl
+    owner: consul
+    group: consul
+    mode: "600"
+    dest: /etc/consul.d/
+
+- name: Install Env
+  become: true
+  template:
+    src: consul.env
+    owner: consul
+    group: consul
+    mode: "600"
+    dest: /etc/consul.d/
+
+- name: Install Server Config
+  become: true
+  when: mode == "server"
+  template:
+    src: server.hcl
+    owner: consul
+    group: consul
+    mode: "600"
+    dest: /etc/consul.d/
+
+- name: Install Client Config
+  become: true
+  when: mode == "client"
+  template:
+    src: client.hcl
+    owner: consul
+    group: consul
+    mode: "600"
+    dest: /etc/consul.d/
+- name: Start Consul On consul_leader_host
+  become: true
+  run_once: true
+  delegate_to: "{{ consul_leader_host }}"
+  systemd:
+    service: consul
+    state: restarted
+- name: Wait for Consul to start
+  run_once: true
+  delegate_to: "{{ consul_leader_host }}"
+  wait_for:
+    port: 8500
+    host: "{{ consul_leader_host }}"
+  
+
+- name: Start Consul
+  become: true
+  systemd:
+    service: consul
+    state: started
+    enabled: yes
+
+- name: Check If Bootstrap Token Exists
+  stat:
+    path: /opt/consul/bootstrap-token.json
+  register: consul_token_stat
+  run_once: true
+  delegate_to: "{{ consul_leader_host }}"
+
+# - name: Generate Key
+#   shell: consul acl bootstrap -format=json | tee /opt/consul/bootstrap-token.json
+#   run_once: true
+#   become: true
+#   delegate_to: "{{ consul_leader_host }}"
+#   when: not consul_token_stat.stat.exists
+
+
+
+  

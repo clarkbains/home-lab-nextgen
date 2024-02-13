@@ -1,0 +1,6 @@
+- name: Install GPG Prerequisite
+  include_tasks: ./install-prerequisites.yaml
+
+- name: Add Repo
+  include_tasks: ./add-hashicorp-repo.yaml
+

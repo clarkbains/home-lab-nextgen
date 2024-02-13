@@ -1,0 +1,12 @@
+- name: Update nomad
+  become: true
+  apt:
+    update_cache: true
+    name: "nomad"
+    state: latest
+- name: Update "open-iscsi"
+  become: true
+  apt:
+    update_cache: true
+    name: "open-iscsi"
+    state: latest

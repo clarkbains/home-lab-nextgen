@@ -1,0 +1,27 @@
+- name: Stop docker
+  when: mode == "client"
+  become: true
+  systemd:
+    service: docker
+    state: stopped
+    enabled: no
+    
+- name: Stop nomad
+  become: true
+  systemd:
+    service: nomad
+    state: stopped
+    enabled: no
+
+
+- name: Delete files
+  become: true
+  shell: rm -rf /opt/nomad/*
+
+- name: Create Config Dir
+  become: true
+  file:
+    path: "/opt/nomad"
+    state: directory
+    owner: "nomad"
+    group: "nomad"

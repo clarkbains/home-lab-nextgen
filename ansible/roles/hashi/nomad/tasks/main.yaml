@@ -1,0 +1,47 @@
+- name: Setup Docker
+  when: mode == "client"
+  include_tasks: ./install-docker.yaml
+
+- name: Install Nomad
+  include_tasks: ./install-nomad.yaml
+
+- name: Purge CLient
+  when: mode == "client"
+  include_tasks: ./purge-host.yaml
+
+- name: Bootstrap Nomad Config Folder
+  include_tasks: ./purge-nomad.yaml
+
+# - name: Bootstrap cluster
+#   include_tasks: ./setup-cluster.yaml
+
+- name: Start Services Run
+  include_tasks: ./setup-services.yaml
+  tags: 
+    - nomad-acl
+
+- name: Setup ACLs
+  #when: mode == "server"
+  include_tasks: ./setup-acl.yaml
+  tags: 
+    - nomad-ack
+
+
+
+  
+# - name: Install Software
+#   become: true
+#   with_items: 
+#     - sudo
+#     - vim
+#   apt:
+#     name: "{{ item }}"
+#     state: latest
+
+# - name: Install Custom Software
+#   become: true
+#   when: debian_extra_packages is defined
+#   with_items: " {{ debian_extra_packages }}"
+#   apt:
+#     name: "{{ item }}"
+#     state: latest

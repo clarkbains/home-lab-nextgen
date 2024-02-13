@@ -1,0 +1,49 @@
+- name: Configure Node
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Dbug Host
+      debug: var=inventory_hostname
+
+    - name: Ensure Hostname in file
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 {{ thin_hostname }} {{ thin_hostname }}.ott.cbains.ca"
+    - name: Ensure Hostname in file
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.1.1 {{ thin_hostname }}"
+    
+    - name: Set Hostname
+      register: hn
+      hostname:
+        name: "{{ thin_hostname }}"
+
+    - name: Restart
+      when: hn.changed
+      reboot:
+        reboot_timeout: 120
+        msg: Reboot initiated by Ansible
+
+    - name: Remove Ansible Base 
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        state: absent
+        regexp: 'ansible-base'
+        
+    - name: Leave Mark
+      shell: date > /etc/thinprovision
+  
+    - name: Remove Local Host Keys
+      connection: local
+      become: false
+      failed_when: false
+      ansible.builtin.command: ssh-keygen -R {{ inventory_hostname }}
+
+    - name: Remove Local Host Keys (HN)
+      connection: local
+      become: false
+      failed_when: false
+      ansible.builtin.command: ssh-keygen -R {{ thin_hostname }}
+

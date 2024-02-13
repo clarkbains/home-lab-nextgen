@@ -1,0 +1,26 @@
+
+- name: Update
+  include_tasks: ./updated-software.yaml
+- name: Drives
+  include_tasks: ./mount-drives.yaml
+
+- name: Disable ArmBoot
+  include_tasks: ./disable-armboot.yaml
+
+  
+# - name: Install Software
+#   become: true
+#   with_items: 
+#     - sudo
+#     - vim
+#   apt:
+#     name: "{{ item }}"
+#     state: latest
+
+# - name: Install Custom Software
+#   become: true
+#   when: debian_extra_packages is defined
+#   with_items: " {{ debian_extra_packages }}"
+#   apt:
+#     name: "{{ item }}"
+#     state: latest

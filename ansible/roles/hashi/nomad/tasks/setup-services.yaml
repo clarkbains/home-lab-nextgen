@@ -1,0 +1,127 @@
+
+
+# - name: Get Server Key
+#   slurp: 
+#     src: /opt/consul/nomad-server.token
+#   run_once: true
+#   when: mode == "server"
+
+#   register: nomad_server_key_b64
+#   delegate_to: "{{ consul_leader_host }}"
+#   become: true
+
+# - name: Get Client Key
+#   slurp: 
+#     src: /opt/consul/nomad-client.token
+#   run_once: true
+#   when: mode == "client"
+#   register: nomad_client_key_b64
+#   delegate_to: "{{ consul_leader_host }}"
+#   become: true
+
+# - name: Get Key
+#   changed_when: false
+#   command: jq -r '.SecretID' /opt/consul/bootstrap-token.json
+#   register: consul_token
+#   delegate_to: "{{ consul_leader_host }}"
+#   run_once: true
+#   become: true
+
+- name: Remove nomad config folder
+  become: true
+  file: 
+    path: /etc/nomad.d
+    state: absent
+
+- name: Make nomad config folder
+  become: true
+  file: 
+    path: /etc/nomad.d
+    state: directory
+    owner: nomad
+    group: nomad
+    mode: "700"
+
+
+- name: Check Mountpoint
+  slurp: 
+    src: "/etc/nomad_data.mountpoint"
+  failed_when: false
+  register: mountpoint
+
+
+- name: Make nomad mount folders
+  become: true
+  when: mountpoint.content is defined and cfg.nomad_vols.names is defined
+  loop: "{{ cfg.nomad_vols.names.split(',') }}"
+  file: 
+    path: "{{mountpoint.content | b64decode|trim}}/{{item}}"
+    state: directory
+    owner: nomad
+    group: nomad
+    mode: "700"
+
+- name: Install Config
+  become: true
+  template:
+    src: nomad.hcl
+    owner: nomad
+    group: nomad
+    mode: "600"
+    dest: /etc/nomad.d/
+
+
+- name: Install Server Config
+  become: true
+  when: mode == "server"
+  template:
+    src: server.hcl
+    owner: nomad
+    group: nomad
+    mode: "600"
+    dest: /etc/nomad.d/
+
+- name: Install Client Config
+  become: true
+  when: mode == "client"
+  template:
+    src: client.hcl
+    owner: nomad
+    group: nomad
+    mode: "600"
+    dest: /etc/nomad.d/
+
+- name: Start nomad
+  become: true
+  systemd:
+    service: nomad
+    state: started
+    enabled: yes
+
+- name: Start docker
+  become: true
+  when: mode == "client"
+
+  systemd:
+    service: docker
+    state: started
+    enabled: yes
+
+- name: Check If Bootstrap Token Exists
+  stat:
+    path: /opt/nomad/bootstrap-token.json
+  register: nomad_token_stat
+  run_once: true
+  delegate_to: "{{ nomad_leader_host }}"
+
+- name: Generate Key
+  shell: nomad acl bootstrap -json | tee /opt/nomad/bootstrap-token.json
+  run_once: true
+  become: true
+  delegate_to: "{{ nomad_leader_host }}"
+  when: not nomad_token_stat.stat.exists
+
+
+
+
+  

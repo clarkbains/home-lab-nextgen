@@ -1,0 +1,10 @@
+- name: Update GPG
+  become: true
+  with_items: 
+    - gpg
+    - wget
+    - lsb-release
+  apt:
+    update_cache: true
+    name: "{{ item }}"
+    state: latest
